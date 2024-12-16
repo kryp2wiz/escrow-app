@@ -22,7 +22,6 @@ import { Escrow, EscrowActionType } from "@/types";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@solana/wallet-adapter-react";
 import WalletConnectButton from "@/components/WalletConnectButton";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import EscrowListTableSkeleton from "./skeleton";
 
 const calculateActionType = (
   publicKey: string | null | undefined,
@@ -42,7 +42,6 @@ const calculateActionType = (
   if (!publicKey) {
     return EscrowActionType.NOT_CONNECTED;
   }
-
   return publicKey === escrow.initializer ? EscrowActionType.CLOSE : EscrowActionType.ACCEPT;
 };
 
@@ -166,7 +165,17 @@ const EscrowList = ({
             </TableRow>
           ))}
         </TableHeader>
-        {data?.length ? (
+        {data === undefined ? (
+          <EscrowListTableSkeleton />
+        ) : data.length === 0 ? (
+          <TableBody>
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-52 text-center">
+                <span>No escrows available</span>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        ) : (
           <TableBody>
             {table.getRowModel().rows.map((row) => (
               <TableRow key={row.id} className={cn({ "opacity-70": loading })}>
@@ -177,14 +186,6 @@ const EscrowList = ({
                 ))}
               </TableRow>
             ))}
-          </TableBody>
-        ) : (
-          <TableBody>
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-52 text-center">
-                <span>No escrows available</span>
-              </TableCell>
-            </TableRow>
           </TableBody>
         )}
       </Table>
