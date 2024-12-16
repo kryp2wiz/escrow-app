@@ -19,7 +19,6 @@ export default function WalletConnectButton() {
             <>
               {
                 !connecting && !connected && !disconnecting && <Wallet color="white" />
-                // <Icon name="wallet" size={6} />
               }
               <p className="hidden lg:block">Connect Wallet</p>
             </>
