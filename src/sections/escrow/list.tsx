@@ -43,74 +43,8 @@ const calculateActionType = (
     return EscrowActionType.NOT_CONNECTED;
   }
 
-  if (publicKey === escrow.initializer) {
-    return EscrowActionType.CLOSE;
-  }
-
-  return EscrowActionType.ACCEPT;
+  return publicKey === escrow.initializer ? EscrowActionType.CLOSE : EscrowActionType.ACCEPT;
 };
-
-const columns: ColumnDef<Escrow>[] = [
-  {
-    id: "address",
-    header: "Escrow",
-    cell: ({ row }) => <div>{truncateAddress(row.original.address, 8)}</div>,
-  },
-  {
-    id: "initializer",
-    header: "Initializer",
-    cell: ({ row }) => <div>{truncateAddress(row.original.initializer, 8)}</div>,
-  },
-  {
-    id: "initializer_amount",
-    header: "Initial Amount",
-    cell: ({ row }) => <div>{row.original.initializerAmount}</div>,
-  },
-  {
-    id: "taker_amount",
-    header: "Taker Amount",
-    cell: ({ row }) => <div>{row.original.takerAmount}</div>,
-  },
-  {
-    id: "action",
-    enableHiding: true,
-    //@ts-ignore
-    cell: ({ row, actionType, onAction }) => {
-      switch (actionType) {
-        case EscrowActionType.NOT_CONNECTED:
-          return <WalletConnectButton />;
-
-        case EscrowActionType.CLOSE:
-        case EscrowActionType.ACCEPT:
-          return (
-            <AlertDialog>
-              <AlertDialogTrigger>
-                <Button className="!m-0">
-                  {actionType === EscrowActionType.CLOSE ? "Close" : "Accept"}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {actionType === EscrowActionType.CLOSE
-                      ? "Closing will cancel the escrow. Any funds or tokens associated with this escrow will remain in your account. This action cannot be undone."
-                      : "Accepting will finalize the escrow. Your specified tokens or funds will be transferred, and the transaction will be irreversible. "}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onAction(actionType, row.original)}>
-                    Continue
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          );
-      }
-    },
-  },
-];
 
 const EscrowList = ({
   loading,
@@ -122,6 +56,80 @@ const EscrowList = ({
   onAction: (type: EscrowActionType, escrow: Escrow) => void;
 }) => {
   const { publicKey } = useWallet();
+
+  const columns: ColumnDef<Escrow>[] = React.useMemo(
+    () => [
+      {
+        id: "address",
+        header: "Escrow",
+        cell: ({ row }) => <div>{truncateAddress(row.original.address, 8)}</div>,
+      },
+      {
+        id: "initializer",
+        header: "Initializer",
+        cell: ({ row }) => <div>{truncateAddress(row.original.initializer, 8)}</div>,
+      },
+      {
+        id: "initializer_amount",
+        header: "Initial Amount",
+        cell: ({ row }) => <div>{row.original.initializerAmount}</div>,
+      },
+      {
+        id: "taker_amount",
+        header: "Taker Amount",
+        cell: ({ row }) => <div>{row.original.takerAmount}</div>,
+      },
+      {
+        id: "action",
+        enableHiding: true,
+        cell: ({ row }) => {
+          const actionType = calculateActionType(publicKey?.toBase58(), row.original);
+
+          switch (actionType) {
+            case EscrowActionType.NOT_CONNECTED:
+              return <WalletConnectButton />;
+            case EscrowActionType.CLOSE:
+            case EscrowActionType.ACCEPT:
+              return (
+                <AlertDialog>
+                  <AlertDialogTrigger disabled={loading}>
+                    <Button className="!m-0" disabled={loading}>
+                      {actionType === EscrowActionType.CLOSE ? "Close" : "Accept"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {actionType === EscrowActionType.CLOSE
+                          ? "Are you sure you want to close this escrow?"
+                          : "Are you sure you want to accept this escrow?"}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {actionType === EscrowActionType.CLOSE
+                          ? "Closing this escrow will cancel the transaction. Any funds or tokens associated with this escrow will remain in your account. This action cannot be undone."
+                          : "Accepting this escrow will finalize the transaction. Your specified tokens or funds will be transferred, and this action cannot be undone."}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => onAction(actionType, row.original)}
+                        disabled={loading}
+                      >
+                        Continue
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              );
+            default:
+              return null;
+          }
+        },
+      },
+    ],
+    [publicKey, loading, onAction]
+  );
 
   const table = useReactTable({
     data: data || [],
@@ -136,7 +144,7 @@ const EscrowList = ({
       <Table className="w-full min-w-[700px] table-fixed">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="">
+            <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
@@ -146,7 +154,7 @@ const EscrowList = ({
                   <div
                     className={cn(
                       "flex items-center gap-2",
-                      header.column.getCanSort() ? "select-none" : ""
+                      header.column.getCanSort() ? "cursor-pointer select-none" : ""
                     )}
                   >
                     {header.isPlaceholder
@@ -158,34 +166,26 @@ const EscrowList = ({
             </TableRow>
           ))}
         </TableHeader>
-        {data ? (
+        {data?.length ? (
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="cursor-pointer">
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="p-4">
-                      {flexRender(cell.column.columnDef.cell, {
-                        ...cell.getContext(),
-                        actionType: calculateActionType(publicKey?.toBase58(), row.original),
-                        onAction,
-                        loading,
-                      })}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-52 text-center">
-                  <span>No Escrows available</span>
-                </TableCell>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id} className={cn({ "opacity-70": loading })}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id} className="p-4">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
               </TableRow>
-            )}
+            ))}
           </TableBody>
         ) : (
-          // <PoolsListTableSkeleton />
-          <div>Loading...</div>
+          <TableBody>
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-52 text-center">
+                <span>No escrows available</span>
+              </TableCell>
+            </TableRow>
+          </TableBody>
         )}
       </Table>
     </div>

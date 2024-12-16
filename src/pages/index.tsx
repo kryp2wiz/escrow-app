@@ -164,7 +164,7 @@ export default function Home() {
         <div className="flex flex-1 flex-col gap-4">
           <div>
             <Button onClick={handleCreate} disabled={loading}>
-              {loading ? "Creating..." : "Create Escrow"}
+              Create Escrow
             </Button>
           </div>
           <EscrowList data={data} loading={loading} onAction={handleAction} />
