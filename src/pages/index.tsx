@@ -45,13 +45,11 @@ export default function Home() {
       setData(
         data.map((escrow) => ({
           address: escrow.publicKey.toBase58(),
-          bump: toUiAmount(escrow.account.bump),
           initializer: escrow.account.initializer.toBase58(),
           initializerAmount: toUiAmount(escrow.account.initializerAmount),
           mintA: escrow.account.mintA.toBase58(),
           mintB: escrow.account.mintB.toBase58(),
           takerAmount: toUiAmount(escrow.account.takerAmount),
-          seed: toUiAmount(escrow.account.seed),
         }))
       );
     } catch (err) {
@@ -123,10 +121,41 @@ export default function Home() {
     }
   };
 
+  const acceptEscrow = async (escrow: Escrow) => {
+    if (!wallet) {
+      console.error("Wallet not connected.");
+      return null;
+    }
+
+    try {
+      setLoading(true);
+      console.log("Accepting escrow:", escrow);
+
+      const provider = new AnchorProvider(connection, wallet, AnchorProvider.defaultOptions());
+      const program = new Program(idl as AnchorEscrow, provider);
+
+      const tx = await program.methods
+        .exchange()
+        .accounts({
+          initializer: new PublicKey(escrow.initializer),
+          mintA: new PublicKey(escrow.mintA),
+          taker: wallet.publicKey,
+          escrow: new PublicKey(escrow.address),
+        })
+        .rpc();
+
+      console.log("Escrow closed with transaction ID:", tx);
+    } catch (err) {
+      console.error("Error closing escrow:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAction = async (type: EscrowActionType, escrow: Escrow) => {
     if (type === EscrowActionType.ACCEPT) {
-      // TODO: Accept logic (not implemented)
-      console.warn("Accept escrow is not implemented.");
+      if (publicKey?.toBase58() !== escrow.initializer) await acceptEscrow(escrow);
+      else console.warn("You cannot accept an escrow you created.");
     } else if (type === EscrowActionType.CLOSE) {
       if (publicKey?.toBase58() === escrow.initializer) await closeEscrow(escrow);
       else console.warn("You cannot close an escrow you did not create.");

@@ -1,7 +1,5 @@
 export type Escrow = {
   address: string;
-  bump: number;
-  seed: number;
   initializer: string;
   initializerAmount: number;
   mintA: string;
