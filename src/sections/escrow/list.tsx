@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn, truncateAddress } from "@/lib/utils";
-import { Escrow, EscrowActionType } from "@/types";
+import { Escrow, EscrowActionType, TokenMeta } from "@/types";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@solana/wallet-adapter-react";
 import WalletConnectButton from "@/components/WalletConnectButton";
@@ -34,6 +34,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import EscrowListTableSkeleton from "./skeleton";
+import TokenLogo from "@/components/TokenLogo";
 
 const calculateActionType = (
   publicKey: string | null | undefined,
@@ -47,10 +48,12 @@ const calculateActionType = (
 
 const EscrowList = ({
   loading,
+  metadata,
   data,
   onAction,
 }: {
   loading: boolean;
+  metadata: Map<string, TokenMeta>;
   data?: Escrow[];
   onAction: (type: EscrowActionType, escrow: Escrow) => void;
 }) => {
@@ -71,12 +74,28 @@ const EscrowList = ({
       {
         id: "initializer_amount",
         header: "Initial Amount",
-        cell: ({ row }) => <div>{row.original.initializerAmount}</div>,
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <TokenLogo
+              url={metadata?.get(row.original.mintA)?.image}
+              alt={metadata?.get(row.original.mintA)?.symbol}
+            />
+            <div>{row.original.initializerAmount}</div>
+          </div>
+        ),
       },
       {
         id: "taker_amount",
         header: "Taker Amount",
-        cell: ({ row }) => <div>{row.original.takerAmount}</div>,
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <TokenLogo
+              url={metadata?.get(row.original.mintB)?.image}
+              alt={metadata?.get(row.original.mintB)?.symbol}
+            />
+            <div>{row.original.takerAmount}</div>
+          </div>
+        ),
       },
       {
         id: "action",
@@ -127,7 +146,7 @@ const EscrowList = ({
         },
       },
     ],
-    [publicKey, loading, onAction]
+    [publicKey, metadata, loading, onAction]
   );
 
   const table = useReactTable({
@@ -140,7 +159,7 @@ const EscrowList = ({
 
   return (
     <div className="flex flex-1">
-      <Table className="w-full min-w-[700px] table-fixed">
+      <Table className="w-full min-w-[700px] table-fixed md:text-lg">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

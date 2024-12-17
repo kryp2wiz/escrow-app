@@ -12,3 +12,11 @@ export enum EscrowActionType {
   CLOSE = "CLOSE",
   ACCEPT = "ACCEPT",
 }
+
+export type TokenMeta = {
+  address: string;
+  decimals: number;
+  name: string;
+  symbol: string;
+  image: string;
+};

@@ -13,7 +13,7 @@ import { ModeToggle } from "@/components/ModeToggle";
 import WalletConnectButton from "@/components/WalletConnectButton";
 import { Button } from "@/components/ui/button";
 import { AnchorEscrow } from "@/types/anchor_escrow";
-import { Escrow, EscrowActionType } from "@/types";
+import { Escrow, EscrowActionType, TokenMeta } from "@/types";
 import EscrowList from "@/sections/escrow/list";
 import idl from "@/idl/anchor_escrow.json";
 
@@ -34,8 +34,28 @@ export default function Home() {
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Escrow[]>();
+  const [metadata, setMetadata] = useState<Map<string, TokenMeta>>(new Map());
 
-  const fetch = async () => {
+  const fetchTokenMetadata = async (addresses: string[]) => {
+    try {
+      const response = await fetch("/api/token-details", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ addresses }),
+      });
+
+      const data = await response.json();
+      data.tokens.forEach((token: TokenMeta) =>
+        setMetadata((map) => new Map(map.set(token.address, token)))
+      );
+    } catch (error) {
+      console.error("Error fetching batch token details:", error);
+    }
+  };
+
+  const fetchEscrow = async () => {
     if (loading) return;
     if (!connection) return;
     try {
@@ -51,6 +71,10 @@ export default function Home() {
           mintB: escrow.account.mintB.toBase58(),
           takerAmount: toUiAmount(escrow.account.takerAmount),
         }))
+      );
+
+      fetchTokenMetadata(
+        data.flatMap((escrow) => [escrow.account.mintA.toBase58(), escrow.account.mintB.toBase58()])
       );
     } catch (err) {
       console.error(err);
@@ -160,16 +184,16 @@ export default function Home() {
       if (publicKey?.toBase58() === escrow.initializer) await closeEscrow(escrow);
       else console.warn("You cannot close an escrow you did not create.");
     }
-    await fetch();
+    await fetchEscrow();
   };
 
   const handleCreate = async () => {
     await createEscrow();
-    await fetch();
+    await fetchEscrow();
   };
 
   useEffect(() => {
-    fetch();
+    fetchEscrow();
   }, [connection]);
 
   return (
@@ -196,7 +220,7 @@ export default function Home() {
               Create Escrow
             </Button>
           </div>
-          <EscrowList data={data} loading={loading} onAction={handleAction} />
+          <EscrowList data={data} loading={loading} onAction={handleAction} metadata={metadata} />
         </div>
       </div>
     </div>
