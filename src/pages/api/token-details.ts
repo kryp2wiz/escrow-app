@@ -64,9 +64,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const tokens = await Promise.all(
-      addresses.map(async (mintAddress) => await fetchTokenDetails(mintAddress))
-    );
+    const tokens = (
+      await Promise.all(addresses.map(async (mintAddress) => await fetchTokenDetails(mintAddress)))
+    ).filter((token) => !!token);
 
     return res.status(200).json({
       success: true,

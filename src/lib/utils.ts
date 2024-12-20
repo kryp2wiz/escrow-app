@@ -15,6 +15,16 @@ export const toUiAmount = (amount: BN | bigint | number | string, decimals = 9):
   return new Decimal(amount.toString()).div(new Decimal(10).pow(decimals)).toNumber();
 };
 
+export const toU64Amount = (
+  uiAmount: number | string,
+  decimals: number,
+  rounding: Decimal.Rounding = Decimal.ROUND_DOWN
+): BN => {
+  return new BN(
+    new Decimal(uiAmount).mul(new Decimal(10).pow(decimals)).toDP(0, rounding).toFixed()
+  );
+};
+
 export const generateHeliusRpcUrl = (): string => {
   const cluster = process.env.HELIUS_CLUSTER;
   const apiKey = process.env.HELIUS_API_KEY;

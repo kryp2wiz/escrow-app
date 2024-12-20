@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn, truncateAddress } from "@/lib/utils";
+import { cn, toUiAmount, truncateAddress } from "@/lib/utils";
 import { Escrow, EscrowActionType, TokenMeta } from "@/types";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -36,6 +36,13 @@ import {
 import EscrowListTableSkeleton from "./skeleton";
 import TokenLogo from "@/components/TokenLogo";
 
+export interface EscrowListProps {
+  loading: boolean;
+  metadata: Map<string, TokenMeta>;
+  data?: Escrow[];
+  onAction: (type: EscrowActionType, escrow: Escrow) => void;
+}
+
 const calculateActionType = (
   publicKey: string | null | undefined,
   escrow: Escrow
@@ -46,17 +53,7 @@ const calculateActionType = (
   return publicKey === escrow.initializer ? EscrowActionType.CLOSE : EscrowActionType.ACCEPT;
 };
 
-const EscrowList = ({
-  loading,
-  metadata,
-  data,
-  onAction,
-}: {
-  loading: boolean;
-  metadata: Map<string, TokenMeta>;
-  data?: Escrow[];
-  onAction: (type: EscrowActionType, escrow: Escrow) => void;
-}) => {
+const EscrowList = ({ loading, metadata, data, onAction }: EscrowListProps) => {
   const { publicKey } = useWallet();
 
   const columns: ColumnDef<Escrow>[] = React.useMemo(
@@ -80,7 +77,12 @@ const EscrowList = ({
               url={metadata?.get(row.original.mintA)?.image}
               alt={metadata?.get(row.original.mintA)?.symbol}
             />
-            <div>{row.original.initializerAmount}</div>
+            <div>
+              {toUiAmount(
+                row.original.initializerAmount,
+                metadata?.get(row.original.mintA)?.decimals
+              )}
+            </div>
           </div>
         ),
       },
@@ -93,7 +95,12 @@ const EscrowList = ({
               url={metadata?.get(row.original.mintB)?.image}
               alt={metadata?.get(row.original.mintB)?.symbol}
             />
-            <div>{row.original.takerAmount}</div>
+            <div>
+              {toUiAmount(
+                row.original.takerAmount,
+                metadata?.get(row.original.mintB)?.decimals
+              )}
+            </div>
           </div>
         ),
       },

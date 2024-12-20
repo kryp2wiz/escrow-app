@@ -6,16 +6,16 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { useAnchorWallet, useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import { randomBytes } from "crypto";
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, TokenAccountBalancePair } from "@solana/web3.js";
 
-import { cn, toUiAmount } from "@/lib/utils";
+import { cn, toU64Amount } from "@/lib/utils";
 import { ModeToggle } from "@/components/ModeToggle";
 import WalletConnectButton from "@/components/WalletConnectButton";
-import { Button } from "@/components/ui/button";
 import { AnchorEscrow } from "@/types/anchor_escrow";
 import { Escrow, EscrowActionType, TokenMeta } from "@/types";
 import EscrowList from "@/sections/escrow/list";
 import idl from "@/idl/anchor_escrow.json";
+import EscrowCreate from "@/sections/escrow/create";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,6 +35,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Escrow[]>();
   const [metadata, setMetadata] = useState<Map<string, TokenMeta>>(new Map());
+  const [balances, setBalances] = useState<TokenAccountBalancePair[]>();
 
   const fetchTokenMetadata = async (addresses: string[]) => {
     try {
@@ -66,10 +67,10 @@ export default function Home() {
         data.map((escrow) => ({
           address: escrow.publicKey.toBase58(),
           initializer: escrow.account.initializer.toBase58(),
-          initializerAmount: toUiAmount(escrow.account.initializerAmount),
+          initializerAmount: escrow.account.initializerAmount.toNumber(),
           mintA: escrow.account.mintA.toBase58(),
           mintB: escrow.account.mintB.toBase58(),
-          takerAmount: toUiAmount(escrow.account.takerAmount),
+          takerAmount: escrow.account.takerAmount.toNumber(),
         }))
       );
 
@@ -83,7 +84,7 @@ export default function Home() {
     }
   };
 
-  const createEscrow = async () => {
+  const createEscrow = async (mintA: PublicKey, mintB: PublicKey, amountA: BN, amountB: BN) => {
     if (!wallet) {
       console.error("Wallet not connected.");
       return null;
@@ -95,14 +96,8 @@ export default function Home() {
       const program = new Program(idl as AnchorEscrow, provider);
 
       const seed = new BN(randomBytes(8).readUInt32BE());
-      const initializerAmount = 1000;
-      const takerAmount = 1000;
-
-      const mintA = new PublicKey("6Zu4xnSUMh8hdeyJhmxkM9E6di7r66bTqXESpHQH4mh4");
-      const mintB = new PublicKey("Egtnbm9kQsCvyGZ1bVTKx1pDYAaDtCz93u9SpZcuh2UK");
-
       const tx = await program.methods
-        .initialize(seed, new BN(initializerAmount), new BN(takerAmount))
+        .initialize(seed, amountA, amountB)
         .accounts({
           mintA,
           mintB,
@@ -187,14 +182,72 @@ export default function Home() {
     await fetchEscrow();
   };
 
-  const handleCreate = async () => {
-    await createEscrow();
+  console.log({
+    metadata,
+  });
+  const handleCreate = async ({
+    inputToken,
+    outputToken,
+    amountIn,
+    amountOut,
+  }: {
+    inputToken: string;
+    outputToken: string;
+    amountIn: number;
+    amountOut: number;
+  }) => {
+    const inputTokenMeta = metadata.get(inputToken);
+    const outputTokenMeta = metadata.get(outputToken);
+
+    if (!inputTokenMeta || !outputTokenMeta) return;
+
+    const amountInU64 = toU64Amount(amountIn, inputTokenMeta.decimals);
+    const amountOutU64 = toU64Amount(amountOut, outputTokenMeta.decimals);
+
+    await createEscrow(
+      new PublicKey(inputToken),
+      new PublicKey(outputToken),
+      amountInU64,
+      amountOutU64
+    );
     await fetchEscrow();
   };
 
   useEffect(() => {
     fetchEscrow();
   }, [connection]);
+
+  useEffect(() => {
+    (async () => {
+      if (publicKey) {
+        try {
+          const response = await fetch("/api/token-balances", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ address: publicKey.toBase58() }),
+          });
+
+          const data = await response.json();
+          const balances: TokenAccountBalancePair[] = data.balances.map(
+            (balance: TokenAccountBalancePair) => ({
+              ...balance,
+              address: new PublicKey(balance.address),
+            })
+          );
+          setBalances(balances);
+
+          const tokens = balances
+            .filter((balance) => !metadata.get(balance.address.toBase58()))
+            .map((balance) => balance.address.toBase58());
+          fetchTokenMetadata(tokens);
+        } catch (error) {
+          console.error("Error fetching batch token balances:", error);
+        }
+      }
+    })();
+  }, [connection, publicKey]);
 
   return (
     <div
@@ -215,11 +268,7 @@ export default function Home() {
           </div>
         </div>
         <div className="flex flex-1 flex-col gap-4">
-          <div>
-            <Button onClick={handleCreate} disabled={loading}>
-              Create Escrow
-            </Button>
-          </div>
+          <EscrowCreate loading={loading} onCreate={handleCreate} metadata={metadata} />
           <EscrowList data={data} loading={loading} onAction={handleAction} metadata={metadata} />
         </div>
       </div>
