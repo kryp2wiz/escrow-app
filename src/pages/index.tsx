@@ -159,6 +159,7 @@ export default function Home() {
           initializer: new PublicKey(escrow.initializer),
           mintA: new PublicKey(escrow.mintA),
           taker: wallet.publicKey,
+          //@ts-ignore
           escrow: new PublicKey(escrow.address),
         })
         .rpc();

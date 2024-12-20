@@ -37,7 +37,13 @@ const EscrowCreate = ({ loading, onCreate, metadata }: EscrowCreateProps) => {
   const [amountIn, setAmountIn] = useState<number>(0);
   const [amountOut, setAmountOut] = useState<number>(0);
 
-  const disabled = !(inputToken && outputToken && amountIn > 0 && amountOut > 0);
+  const disabled = !(
+    inputToken &&
+    outputToken &&
+    inputToken !== outputToken &&
+    amountIn > 0 &&
+    amountOut > 0
+  );
 
   const handleCreate = () => {
     if (!disabled)
