@@ -183,9 +183,6 @@ export default function Home() {
     await fetchEscrow();
   };
 
-  console.log({
-    metadata,
-  });
   const handleCreate = async ({
     inputToken,
     outputToken,
@@ -201,6 +198,12 @@ export default function Home() {
     const outputTokenMeta = metadata.get(outputToken);
 
     if (!inputTokenMeta || !outputTokenMeta) return;
+
+    const currentBalance = balances?.find(
+      (balance) => balance.address.toBase58() === inputToken
+    )?.uiAmount;
+
+    if (!currentBalance || currentBalance < amountIn) return;
 
     const amountInU64 = toU64Amount(amountIn, inputTokenMeta.decimals);
     const amountOutU64 = toU64Amount(amountOut, outputTokenMeta.decimals);
